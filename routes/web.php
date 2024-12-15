@@ -19,23 +19,33 @@ Route::get('/dashboard', [KatalogController::class, 'index'])
 Route::get('/dashboard#tentangkami', [KatalogController::class, 'tentangKami'])->name('dashboard#tentangkami');
 
 // Katalog routes
-Route::get('/dashboard#katalog', [KatalogController::class, 'katalog'])->name('dashboard#katalog');
+Route::get('/dashboard#katalog', [KatalogController::class, 'katalog'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard#katalog');
+
+// Detail katalog dengan ID
 Route::get('/katalog/{id}', [KatalogController::class, 'detail'])
     ->middleware(['auth', 'verified'])
     ->name('katalog.detail');
 
 // Transaksi routes
-Route::get('/transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
+Route::post('/transaksi/store', [TransaksiController::class, 'store'])
+    ->middleware(['auth', 'verified'])
+    ->name('transaksi.store');
 
-// Route untuk menampilkan form checkout dan proses pembayaran
-Route::get('/transaksi/{id}/checkout', [TransaksiController::class, 'checkout'])->name('transaksi.checkout');
+Route::get('/transaksi', [TransaksiController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('transaksi.index');
 
-// Route untuk menyimpan transaksi baru dan menghasilkan Snap Token
-Route::post('/transaksi.store', [TransaksiController::class, 'store'])->name('transaksi.store');
-Route::post('transaksi/callback', [TransaksiController::class, 'handleMidtransCallback'])->name('transaksi.callback');
+// Route untuk pembayaran
+Route::post('/payment/{transaksi}', [PaymentController::class, 'bayar'])->name('payment.bayar');
 
 
-// Profile routes with authentication middleware
+// Route untuk callback dari Midtrans
+Route::post('/payment/callback', [PaymentController::class, 'callback'])
+    ->name('payment.callback');
+
+// Profile routes
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

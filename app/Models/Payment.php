@@ -1,40 +1,36 @@
 <?php
-// app/Models/Payment.php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Transaksi;
-use App\Models\User;
 
 class Payment extends Model
 {
     use HasFactory;
 
+    protected $table = 'payments';
+
+    // Specify which columns are mass assignable
     protected $fillable = [
         'transaksi_id',
-        'user_id',
+        'midtrans_order_id',
         'status',
-        'payment_method',
+        'payment_type',
         'payment_url',
-        'payment_code',
-        'payment_status',
     ];
 
-    protected $casts = [
-        'status' => 'string',
-    ];
-
-    // Relasi ke Transaksi
+    // Relationship with the Transaksi model
     public function transaksi()
     {
-        return $this->belongsTo(Transaksi::class, 'transaksi_id');
+        return $this->belongsTo(Transaksi::class);
     }
 
-    // Relasi ke User
-    public function user()
-    {
-        return $this->belongsTo(User::class, 'user_id');
-    }
+    // Optional: Disable timestamps if not needed
+    // public $timestamps = false;
+
+    // Optional: Define a scope for querying payments with 'pending' status
+    // public function scopePending($query)
+    // {
+    //     return $query->where('status', 'pending');
+    // }
 }

@@ -1,67 +1,79 @@
 <?php
-
 namespace App\Http\Controllers;
-use Illuminate\Http\Request;
-use App\Models\Transaksi;
-use Midtrans\Snap;
-use Illuminate\Support\Facades\Log;
 
+use App\Models\Transaksi;
+use App\Models\Payment;
 use Illuminate\Http\Request;
+use Midtrans\Snap;
+use Midtrans\Config;
 
 class PaymentController extends Controller
 {
-    public function checkout(Request $request, $id)
+    public function __construct()
     {
-        $transaksi = Transaksi::with('katalog')->findOrFail($id);
-
-        $params = [
-            'transaction_details' => [
-                'order_id' => 'ORDER-' . uniqid(),
-                'gross_amount' => $transaksi->total_harga,
-            ],
-            'customer_details' => [
-                'first_name' => $transaksi->user->name,
-                'email' => $transaksi->user->email,
-            ],
-        ];
-
-        $snapToken = Snap::getSnapToken($params);
-
-        return view('payment.checkout', compact('transaksi', 'snapToken'));
+        // Set konfigurasi Midtrans
+        Config::$serverKey = config('midtrans.server_key');
+        Config::$isProduction = false; // Ganti ke true untuk produksi
+        Config::$isSanitized = true;
+        Config::$is3ds = true;
     }
-    public function paymentCallback(Request $request)
-    {
-        $json = json_decode($request->getContent(), true);
 
-        $orderId = $json['order_id'];
-        $transactionStatus = $json['transaction_status'];
-        
-        $transaksi = Transaksi::where('order_id', $orderId)->first();
-        if ($transactionStatus === 'settlement') {
-            $transaksi->status = 'sukses';
-        } elseif ($transactionStatus === 'pending') {
-            $transaksi->status = 'pending';
-        } elseif (in_array($transactionStatus, ['deny', 'expire', 'cancel'])) {
-            $transaksi->status = 'gagal';
+    /**
+     * Menangani pembuatan pembayaran dan mengarahkan pengguna ke Midtrans.
+     */
+    public function bayar(Request $request, Transaksi $transaksi)
+    {
+        // Contoh data yang diterima dari form atau API
+        $data = $request->validate([
+            'payment_type' => 'required|string',
+            'payment_url' => 'required|string',
+        ]);
+    
+        // Pastikan Anda menyertakan nilai untuk 'payment_type'
+        $payment = new Payment([
+            'transaksi_id' => $transaksi->id,
+            'midtrans_order_id' => 'TRX-' . strtoupper(uniqid()), // contoh ID order
+            'status' => 'pending',
+            'payment_type' => $data['payment_type'], // Pastikan ini tidak kosong
+            'payment_url' => $data['payment_url'],
+        ]);
+    
+        $payment->save();
+        Log::info('Pembayaran diterima');
+    return response()->json(['status' => 'success']);
+        // Lakukan hal lain jika perlu
+    }
+    
+
+
+    /**
+     * Menangani callback dari Midtrans untuk memperbarui status transaksi.
+     */
+    public function callback(Request $request)
+    {
+        // Ambil status pembayaran dan order_id dari callback Midtrans
+        $status = $request->input('transaction_status');
+        $orderId = $request->input('order_id');
+
+        // Cari data pembayaran berdasarkan order_id
+        $payment = Payment::where('midtrans_order_id', $orderId)->first();
+
+        if ($payment) {
+            // Update status pembayaran di tabel Payment
+            $payment->status = $status;
+            $payment->save();
+
+            // Update status transaksi berdasarkan status pembayaran
+            $transaksi = $payment->transaksi;
+            if ($status == 'capture' || $status == 'settlement') {
+                $transaksi->status = 'lunas';
+            } else {
+                $transaksi->status = 'gagal';
+            }
+            $transaksi->save();
         }
-        $transaksi->save();
 
-        return response()->json(['message' => 'Callback diproses']);
+        // Kembalikan response sukses
+        return response()->json(['status' => 'success']);
     }
-    public function process(Request $request)
-    {
-        // Handle the response from Midtrans, such as updating the transaction status
-        $transaksi = Transaksi::findOrFail($request->transaksi_id);
-        $transaksi->status = 'lunas';  // or whatever status you want after success
-        $transaksi->save();
-
-        return redirect()->route('payment.success');
-    }
-
-    public function success()
-    {
-        // Show a success message or a success page
-        return view('payment.success');
-    }
-
 }

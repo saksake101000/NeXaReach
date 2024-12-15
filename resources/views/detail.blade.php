@@ -44,28 +44,5 @@
         </div>
     </div>
 </div>
-<script type="text/javascript">
-    function bayarDenganMidtrans(snapToken) {
-        // Menggunakan Midtrans Snap API untuk menampilkan popup pembayaran
-        snap.pay(snapToken, {
-            onSuccess: function(result) {
-                alert("Pembayaran berhasil!");
-                // Proses lebih lanjut sesuai dengan kebutuhan Anda (misalnya simpan status pembayaran)
-            },
-            onPending: function(result) {
-                alert("Pembayaran tertunda!");
-            },
-            onError: function(result) {
-                alert("Pembayaran gagal!");
-            }
-        });
-    }
-
-    // Menampilkan form pembayaran dengan token dari session
-    var snapToken = "{{ session('snap_token') }}";
-    if (snapToken) {
-        bayarDenganMidtrans(snapToken);
-    }
-</script>
 
 @endsection
